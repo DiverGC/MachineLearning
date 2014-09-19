@@ -1,0 +1,66 @@
+---
+title: "Machine Learning Project Writeup"
+output: html_document
+---
+
+###Summary
+The purpose of this project is to use data at https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv to build a model and predict the data available at https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv.
+
+###Reading and Cleaning Data
+```{r}
+#Reading Data
+data<-read.csv("pml-training.csv",sep=",")
+
+library(caret)
+
+#Cleaning Data
+data1<-data[,7:ncol(data)] #Drop the first 6 columns since I suspect they don't help. Will add them
+                           #back if model doesn't work out
+data1[(data1=="")]<-NA #Populate empty cells with NA
+data1<-data1[,colSums(is.na(data1))==0]  #Removes columns with any NAs
+```
+
+###Creating the Model
+```{r}
+if (!file.exists("rfModel.save")) {
+  set.seed(125)
+  inTrain<-createDataPartition(y=data1$classe,p=.6,list=FALSE)
+  training<-data1[inTrain,]
+  testing<-data1[-inTrain,]
+  
+  rfModel <- train(classe ~ ., data=training, method="rf",prox=TRUE)
+  save(rfModel, file="rfModel.save")
+} else {
+  load("rfModel.save")
+}
+```
+###Out of Sample Error
+To get the out of sample error, let's first find the error rate for the test set partitioned from the training data.
+```{r}
+testing<-data1[-inTrain,]
+
+predict1<-testing$classe==predict(rfModel, testing)
+error1<-1-length(predict1[predict1==TRUE])/length(predict1)
+error1
+```
+With this value being so low, I took two more random samples and used the same model.
+```{r}
+set.seed(1011) #randomly chosen
+inTrain2<-createDataPartition(y=data1$classe,p=.4,list=FALSE)
+testing2<-data1[inTrain2,]
+predict2<-testing2$classe==predict(rfModel, testing2)
+error2<-1-(length(predict2[predict2==TRUE])/length(predict2))
+error2
+
+set.seed(42) #randomly chosen
+inTrain3<-createDataPartition(y=data1$classe,p=.4,list=FALSE)
+testing3<-data1[inTrain3,]
+predict3<-testing3$classe==predict(rfModel, testing3)
+error3<-1-(length(predict3[predict3==TRUE])/length(predict3))
+error3
+```
+The mean out of error sample rate is computed as:
+```{r}
+errort<-c(error1,error2,error3)
+mean(errort)
+```
